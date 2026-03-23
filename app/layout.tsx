@@ -1,15 +1,13 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next' // Importamos el tipo Viewport
 import { Syne, DM_Sans } from 'next/font/google'
 import './globals.css'
 
-// Configuración de la fuente para títulos (Imagen de referencia 3)
 const syne = Syne({ 
   subsets: ['latin'],
   variable: '--font-syne', 
   weight: ['400', '700', '800'],
 })
 
-// Configuración de la fuente para el cuerpo (Lectura clara)
 const dmSans = DM_Sans({ 
   subsets: ['latin'],
   variable: '--font-dm-sans',
@@ -21,6 +19,14 @@ export const metadata: Metadata = {
   description: 'Pastel de Choclo artesanal — Región de Aysén',
 }
 
+// --- CONFIGURACIÓN PARA BLOQUEAR ZOOM (IOS/ANDROID) ---
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+}
+
 export default function RootLayout({
   children,
 }: {
@@ -28,7 +34,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" className={`${syne.variable} ${dmSans.variable}`}>
-      <body className="font-sans bg-dark-bg text-white antialiased">
+      {/* bg-black asegura el contraste total con el glassmorphism */}
+      <body className="font-sans bg-black text-white antialiased">
         {children}
       </body>
     </html>
