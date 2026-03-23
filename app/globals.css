@@ -1,9 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;1,9..40,400&display=swap');
 @import "tailwindcss";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@theme {
+  --font-sans: var(--font-dm-sans);
+  --font-heading: var(--font-syne);
+  
+  --color-golden-main: #FCA311;
+  --color-dark-bg: #000000;
+  --color-dark-card: #14213D;
+  --color-soft-gray: #E5E5E5;
+  
+  --radius-3xl: 1.5rem;
+}
 
 :root {
   --gc-gold: #C9A84C;

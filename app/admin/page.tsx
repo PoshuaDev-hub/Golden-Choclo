@@ -1,194 +1,136 @@
-'use client'
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import { ShoppingBag, TrendingUp, AlertTriangle, RefreshCw } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import { Order, Transaction, Product } from '@/lib/types'
+"use client";
 
-type ResumenDia = {
-  pedidosPendientes: number
-  gananciaDia: number
-  stockCritico: number
-}
+import React, { useState } from 'react';
+import { 
+  TrendingUp, 
+  DollarSign, 
+  Package, 
+  Share2, 
+  Plus, 
+  Calendar,
+  ArrowUpRight
+} from 'lucide-react';
 
 export default function AdminDashboard() {
-  const [resumen, setResumen] = useState<ResumenDia>({ pedidosPendientes: 0, gananciaDia: 0, stockCritico: 0 })
-  const [grafico, setGrafico] = useState<any[]>([])
-  const [storeOpen, setStoreOpen] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [togglingStore, setTogglingStore] = useState(false)
+  const [isOpen, setIsOpen] = useState(false); // Switch Maestro para abrir reservas
 
-  const cargarDatos = async () => {
-    setLoading(true)
-    const hoy = new Date().toISOString().split('T')[0]
-
-    // Pedidos pendientes
-    const { data: pedidos } = await supabase
-      .from('gc_orders')
-      .select('*')
-      .eq('status', 'pendiente')
-
-    // Ganancia del día (ingresos - gastos de hoy)
-    const { data: txHoy } = await supabase
-      .from('gc_transactions')
-      .select('*')
-      .eq('date', hoy)
-
-    const gananciaDia = (txHoy || []).reduce((acc: number, tx: Transaction) => {
-      return tx.type === 'income' ? acc + tx.amount : acc - tx.amount
-    }, 0)
-
-    // Stock crítico (productos agotados)
-    const { data: productos } = await supabase
-      .from('gc_products')
-      .select('*')
-      .eq('available', false)
-
-    // Estado del local
-    const { data: setting } = await supabase
-      .from('gc_settings')
-      .select('value')
-      .eq('key', 'store_open')
-      .single()
-
-    setStoreOpen(setting?.value === 'true')
-    setResumen({
-      pedidosPendientes: pedidos?.length || 0,
-      gananciaDia,
-      stockCritico: productos?.length || 0,
-    })
-
-    // Gráfico últimos 7 días
-    const dias = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date()
-      d.setDate(d.getDate() - (6 - i))
-      return d.toISOString().split('T')[0]
-    })
-
-    const { data: txSemana } = await supabase
-      .from('gc_transactions')
-      .select('*')
-      .gte('date', dias[0])
-      .lte('date', dias[6])
-
-    const datosGrafico = dias.map(dia => {
-      const txDia = (txSemana || []).filter((tx: Transaction) => tx.date === dia)
-      const ingresos = txDia.filter((t: Transaction) => t.type === 'income').reduce((a: number, t: Transaction) => a + t.amount, 0)
-      const gastos = txDia.filter((t: Transaction) => t.type === 'expense').reduce((a: number, t: Transaction) => a + t.amount, 0)
-      const label = new Date(dia + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric' })
-      return { dia: label, Ingresos: ingresos, Gastos: gastos }
-    })
-
-    setGrafico(datosGrafico)
-    setLoading(false)
-  }
-
-  const toggleStore = async () => {
-    setTogglingStore(true)
-    const nuevoEstado = !storeOpen
-    await supabase
-      .from('gc_settings')
-      .update({ value: String(nuevoEstado) })
-      .eq('key', 'store_open')
-    setStoreOpen(nuevoEstado)
-    setTogglingStore(false)
-  }
-
-  useEffect(() => { cargarDatos() }, [])
-
-  const formatCLP = (n: number) =>
-    n.toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 })
+  const shareLink = () => {
+    const url = `${window.location.origin}/tienda`;
+    navigator.clipboard.writeText(url);
+    alert("¡Link de la tienda copiado para enviar a tus clientes!");
+  };
 
   return (
-    <div style={{ padding: '24px 20px' }}>
+    <div className="min-h-screen bg-dark-bg text-soft-gray p-4 md:p-8 font-sans">
+      <div className="max-w-6xl mx-auto">
+        
+        {/* Header Superior */}
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
+          <div>
+            <h1 className="font-heading text-3xl font-black italic text-white tracking-tighter">
+              DASHBOARD <span className="text-golden-main">GOLDEN</span>
+            </h1>
+            <p className="text-zinc-500 text-xs uppercase tracking-widest mt-1">Gestión Operativa • Aysén</p>
+          </div>
+          
+          <div className="flex gap-3 w-full md:w-auto">
+            <button 
+              onClick={shareLink}
+              className="flex-1 md:flex-none bg-dark-card border border-white/10 hover:border-golden-main/50 text-white px-5 py-3 rounded-2xl flex items-center justify-center gap-2 transition-all"
+            >
+              <Share2 size={18} className="text-golden-main" />
+              <span className="text-sm font-bold">Compartir Link</span>
+            </button>
+            <button className="flex-1 md:flex-none bg-golden-main text-black px-6 py-3 rounded-2xl flex items-center justify-center gap-2 font-black transition-transform hover:scale-105">
+              <Plus size={20} />
+              <span className="text-sm">Venta Manual</span>
+            </button>
+          </div>
+        </header>
 
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontFamily: 'Syne', fontSize: 22, fontWeight: 700, color: 'var(--gc-gold)' }}>
-            Resumen del día
-          </h1>
-          <p style={{ fontSize: 13, color: 'var(--gc-muted)', marginTop: 2 }}>
-            {new Date().toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-          </p>
-        </div>
-        <button onClick={cargarDatos} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--gc-muted)' }}>
-          <RefreshCw size={18} />
-        </button>
-      </div>
-
-      {/* Switch Maestro */}
-      <div className="card" style={{ marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <p style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 15, color: 'var(--gc-text)' }}>
-            {storeOpen ? '🟢 Reservas abiertas' : '🔴 Reservas cerradas'}
-          </p>
-          <p style={{ fontSize: 12, color: 'var(--gc-muted)', marginTop: 2 }}>
-            {storeOpen ? 'Los clientes pueden hacer pedidos' : 'La web muestra "Volvemos pronto"'}
-          </p>
-        </div>
-        <button onClick={toggleStore} disabled={togglingStore}
-          className={storeOpen ? 'btn-outline' : 'btn-gold'}
-          style={{ fontSize: 13, padding: '8px 16px', minWidth: 110, opacity: togglingStore ? 0.6 : 1 }}>
-          {togglingStore ? '...' : storeOpen ? 'Cerrar' : 'Abrir'}
-        </button>
-      </div>
-
-      {/* Tarjetas resumen */}
-      {loading ? (
-        <p style={{ color: 'var(--gc-muted)', fontSize: 14 }}>Cargando datos...</p>
-      ) : (
-        <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
-            {/* Pedidos pendientes */}
-            <div className="card" style={{ textAlign: 'center' }}>
-              <ShoppingBag size={20} style={{ color: 'var(--gc-amber)', margin: '0 auto 8px' }} />
-              <p style={{ fontSize: 26, fontFamily: 'Syne', fontWeight: 700, color: 'var(--gc-text)' }}>
-                {resumen.pedidosPendientes}
-              </p>
-              <p style={{ fontSize: 11, color: 'var(--gc-muted)', marginTop: 4 }}>Pendientes</p>
+        {/* Layout Bento Box (Estética Imagen 3) */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          
+          {/* Card 1: Utilidad Real (Grande) */}
+          <div className="md:col-span-2 bg-golden-main rounded-3xl p-8 text-black flex flex-col justify-between h-[280px] shadow-lg shadow-golden-main/10 relative overflow-hidden group">
+            <div className="relative z-10 flex justify-between items-start">
+              <div className="p-3 bg-black/10 rounded-2xl italic font-black text-xs">RESUMEN FINANCIERO</div>
+              <TrendingUp size={24} />
             </div>
-
-            {/* Ganancia del día */}
-            <div className="card" style={{ textAlign: 'center' }}>
-              <TrendingUp size={20} style={{ color: 'var(--gc-green)', margin: '0 auto 8px' }} />
-              <p style={{ fontSize: 20, fontFamily: 'Syne', fontWeight: 700, color: resumen.gananciaDia >= 0 ? 'var(--gc-green)' : 'var(--gc-red)' }}>
-                {formatCLP(resumen.gananciaDia)}
-              </p>
-              <p style={{ fontSize: 11, color: 'var(--gc-muted)', marginTop: 4 }}>Utilidad hoy</p>
+            <div className="relative z-10">
+              <p className="text-sm font-medium opacity-70 mb-1 font-heading uppercase tracking-tighter">Ganancia Neta (Mensual)</p>
+              <h2 className="text-6xl font-black italic tracking-tighter">$840.500</h2>
+              <div className="mt-4 flex items-center gap-2 text-xs font-bold bg-black/5 w-fit px-3 py-1 rounded-full">
+                <ArrowUpRight size={14} /> +18.4% VS MES ANTERIOR
+              </div>
             </div>
-
-            {/* Stock crítico */}
-            <div className="card" style={{ textAlign: 'center' }}>
-              <AlertTriangle size={20} style={{ color: resumen.stockCritico > 0 ? 'var(--gc-red)' : 'var(--gc-green)', margin: '0 auto 8px' }} />
-              <p style={{ fontSize: 26, fontFamily: 'Syne', fontWeight: 700, color: resumen.stockCritico > 0 ? 'var(--gc-red)' : 'var(--gc-green)' }}>
-                {resumen.stockCritico}
-              </p>
-              <p style={{ fontSize: 11, color: 'var(--gc-muted)', marginTop: 4 }}>Agotados</p>
+            {/* Decoración de fondo */}
+            <div className="absolute -right-8 -bottom-8 text-black/5 transform -rotate-12">
+               <DollarSign size={200} />
             </div>
           </div>
 
-          {/* Gráfico semanal */}
-          <div className="card">
-            <p style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 15, color: 'var(--gc-text)', marginBottom: 16 }}>
-              Ingresos vs Gastos — últimos 7 días
-            </p>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={grafico} barGap={4}>
-                <XAxis dataKey="dia" tick={{ fontSize: 11, fill: '#888880' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#888880' }} axisLine={false} tickLine={false}
-                  tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-                <Tooltip 
-                contentStyle={{ background: 'var(--gc-surface2)', border: '1px solid var(--gc-border)', borderRadius: 8, fontSize: 12 }}
-                formatter={(value: unknown) => [formatCLP(value as number), '']}                />
-                <Legend wrapperStyle={{ fontSize: 12, color: 'var(--gc-muted)' }} />
-                <Bar dataKey="Ingresos" fill="#C9A84C" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Gastos" fill="#E05C5C" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          {/* Card 2: Switch Maestro (Control Operativo) */}
+          <div className={`md:col-span-1 rounded-3xl p-8 flex flex-col justify-between transition-colors duration-500 border ${isOpen ? 'bg-zinc-900 border-golden-main/30' : 'bg-dark-card border-white/5'}`}>
+            <div className="flex justify-between items-center">
+              <Calendar size={24} className={isOpen ? 'text-golden-main' : 'text-zinc-600'} />
+              <div className={`w-3 h-3 rounded-full animate-pulse ${isOpen ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            </div>
+            <div>
+              <h3 className="text-lg font-heading font-bold mb-4">{isOpen ? 'RESERVAS ABIERTAS' : 'SISTEMA CERRADO'}</h3>
+              <button 
+                onClick={() => setIsOpen(!isOpen)}
+                className={`w-full py-4 rounded-2xl font-black text-xs transition-all ${isOpen ? 'bg-red-600/20 text-red-500 border border-red-600/30' : 'bg-golden-main text-black'}`}
+              >
+                {isOpen ? 'CERRAR ESTE FINDE' : 'ABRIR ESTE FINDE'}
+              </button>
+            </div>
           </div>
-        </>
-      )}
+
+          {/* Card 3: Inversión (Gastos) */}
+          <div className="md:col-span-1 bg-dark-card rounded-3xl p-8 border border-white/5 flex flex-col justify-between">
+            <div className="flex justify-between items-center text-zinc-500">
+              <Package size={24} />
+              <span className="text-[10px] font-black tracking-widest uppercase">Gastos</span>
+            </div>
+            <div>
+              <h4 className="text-3xl font-black text-white">$125.000</h4>
+              <p className="text-zinc-500 text-xs mt-1 italic font-medium">Inversión en insumos</p>
+              <button className="mt-6 text-xs font-bold text-golden-main underline decoration-golden-main/30 hover:text-white transition-colors">
+                Registrar Gasto
+              </button>
+            </div>
+          </div>
+
+          {/* Card 4: Historial Reciente (Ancho Completo) */}
+          <div className="md:col-span-4 bg-zinc-900/40 rounded-3xl p-8 border border-white/5">
+            <div className="flex justify-between items-center mb-8">
+              <h3 className="font-heading text-xl font-bold italic tracking-tighter">Últimos Pedidos</h3>
+              <button className="text-xs font-bold text-zinc-500 hover:text-golden-main">VER TODO EL HISTORIAL</button>
+            </div>
+            
+            <div className="space-y-4">
+              {[1, 2].map((id) => (
+                <div key={id} className="flex items-center justify-between p-5 bg-dark-card/40 rounded-2xl border border-white/5 hover:border-golden-main/20 transition-all cursor-pointer group">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center font-heading font-black text-golden-main">
+                      {id === 1 ? 'J' : 'A'}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white uppercase tracking-tight">{id === 1 ? 'Joshua Tester' : 'Ana Valenzuela'}</p>
+                      <p className="text-[10px] text-zinc-500 uppercase font-black tracking-tighter">Cocho Familiar • Retiro</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-black text-golden-main">+$22.500</p>
+                    <p className="text-[10px] text-zinc-600 font-bold">HOY 14:30</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-  )
+  );
 }

@@ -1,117 +1,69 @@
-'use client'
-import { useRouter, usePathname } from 'next/navigation'
-import { LayoutDashboard, ShoppingBag, Package, DollarSign, Settings, LogOut } from 'lucide-react'
-
-const navItems = [
-  { label: 'Resumen',   href: '/admin',              icon: LayoutDashboard },
-  { label: 'Pedidos',   href: '/admin/pedidos',       icon: ShoppingBag },
-  { label: 'Productos', href: '/admin/productos',     icon: Package },
-  { label: 'Finanzas',  href: '/admin/finanzas',      icon: DollarSign },
-  { label: 'Config',    href: '/admin/configuracion', icon: Settings },
-]
+"use client";
+import { useState } from 'react';
+import { LayoutDashboard, ShoppingCart, Package, DollarSign, Settings, Menu, X } from 'lucide-react';
+import Link from 'next/link';
 
 export default function NavAdmin() {
-  const router = useRouter()
-  const pathname = usePathname()
+  const [isOpen, setIsOpen] = useState(false);
 
-  const cerrarSesion = () => {
-    localStorage.removeItem('gc_admin')
-    router.push('/admin/login')
-  }
+  const menuItems = [
+    { name: 'Resumen', icon: <LayoutDashboard size={20}/>, href: '/admin' },
+    { name: 'Pedidos', icon: <ShoppingCart size={20}/>, href: '/admin/pedidos' },
+    { name: 'Productos', icon: <Package size={20}/>, href: '/admin/productos' },
+    { name: 'Finanzas', icon: <DollarSign size={20}/>, href: '/admin/finanzas' },
+    { name: 'Config', icon: <Settings size={20}/>, href: '/admin/config' },
+  ];
 
   return (
     <>
-      {/* SIDEBAR — solo desktop */}
-      <aside className="hidden md:flex flex-col"
-        style={{
-          width: 220,
-          minHeight: '100vh',
-          background: 'var(--gc-surface)',
-          borderRight: '1px solid var(--gc-border)',
-          padding: '24px 0',
-          position: 'fixed',
-          top: 0, left: 0,
-        }}>
+      {/* Botón Hamburguesa para Móvil */}
+      <button 
+        onClick={() => setIsOpen(true)}
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-golden-main text-black rounded-lg"
+      >
+        <Menu size={24} />
+      </button>
 
-        {/* Logo */}
-        <div style={{ padding: '0 20px 28px', borderBottom: '1px solid var(--gc-border)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 8,
-              background: 'var(--gc-gold)', display: 'flex',
-              alignItems: 'center', justifyContent: 'center',
-            }}>
-              <span style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 14, color: '#0F0F0F' }}>GC</span>
-            </div>
-            <div>
-              <p style={{ fontFamily: 'Syne', fontWeight: 700, fontSize: 14, color: 'var(--gc-text)' }}>Golden Cocho</p>
-              <p style={{ fontSize: 11, color: 'var(--gc-muted)' }}>Admin</p>
-            </div>
+      {/* Sidebar */}
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 w-64 bg-black border-r border-white/5 transform transition-transform duration-300 ease-in-out
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        lg:translate-x-0 lg:static lg:inset-0
+      `}>
+        <div className="flex flex-col h-full p-6">
+          <div className="flex justify-between items-center mb-10">
+            <h2 className="font-heading font-black italic text-xl">GOLDEN <span className="text-golden-main">COCHO</span></h2>
+            <button onClick={() => setIsOpen(false)} className="lg:hidden text-zinc-500">
+              <X size={24} />
+            </button>
           </div>
-        </div>
 
-        {/* Links */}
-        <nav style={{ flex: 1, padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {navItems.map(({ label, href, icon: Icon }) => {
-            const active = pathname === href
-            return (
-              <button key={href} onClick={() => router.push(href)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '10px 12px', borderRadius: 8, border: 'none',
-                  cursor: 'pointer', width: '100%', textAlign: 'left',
-                  background: active ? 'rgba(201,168,76,0.12)' : 'transparent',
-                  color: active ? 'var(--gc-gold)' : 'var(--gc-muted)',
-                  fontFamily: 'DM Sans', fontSize: 14,
-                  transition: 'all 0.15s',
-                }}>
-                <Icon size={17} />
-                {label}
-              </button>
-            )
-          })}
-        </nav>
+          <nav className="space-y-2 flex-1">
+            {menuItems.map((item) => (
+              <Link 
+                key={item.name} 
+                href={item.href}
+                className="flex items-center gap-4 px-4 py-3 rounded-2xl text-zinc-400 hover:bg-white/5 hover:text-golden-main transition-all group"
+              >
+                <span className="group-hover:scale-110 transition-transform">{item.icon}</span>
+                <span className="font-bold text-sm tracking-tight">{item.name}</span>
+              </Link>
+            ))}
+          </nav>
 
-        {/* Cerrar sesión */}
-        <div style={{ padding: '0 12px' }}>
-          <button onClick={cerrarSesion}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '10px 12px', borderRadius: 8, border: 'none',
-              cursor: 'pointer', width: '100%',
-              background: 'transparent', color: 'var(--gc-red)',
-              fontFamily: 'DM Sans', fontSize: 14,
-            }}>
-            <LogOut size={17} />
-            Cerrar sesión
-          </button>
+          <div className="mt-auto pt-6 border-t border-white/5">
+            <p className="text-[10px] text-zinc-600 font-black uppercase tracking-widest">Aysén • Chile</p>
+          </div>
         </div>
       </aside>
 
-      {/* BOTTOM NAV — solo mobile */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50"
-        style={{
-          background: 'var(--gc-surface)',
-          borderTop: '1px solid var(--gc-border)',
-          display: 'flex',
-          padding: '8px 0 12px',
-        }}>
-        {navItems.map(({ label, href, icon: Icon }) => {
-          const active = pathname === href
-          return (
-            <button key={href} onClick={() => router.push(href)}
-              style={{
-                flex: 1, display: 'flex', flexDirection: 'column',
-                alignItems: 'center', gap: 4, border: 'none',
-                background: 'transparent', cursor: 'pointer',
-                color: active ? 'var(--gc-gold)' : 'var(--gc-muted)',
-              }}>
-              <Icon size={20} />
-              <span style={{ fontSize: 10, fontFamily: 'DM Sans' }}>{label}</span>
-            </button>
-          )
-        })}
-      </nav>
+      {/* Overlay para cerrar en móvil al tocar fuera */}
+      {isOpen && (
+        <div 
+          onClick={() => setIsOpen(false)} 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+        />
+      )}
     </>
-  )
+  );
 }

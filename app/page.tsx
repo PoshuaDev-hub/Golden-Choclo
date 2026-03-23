@@ -1,122 +1,36 @@
-"use client"; // Esto es necesario para usar botones y formularios en Next.js
+import Image from 'next/image';
+import Link from 'next/link';
 
-import React, { useState } from 'react';
-import { ShoppingCart, DollarSign, Package, Plus, X } from 'lucide-react';
-
-// Definimos cómo luce un Pedido para que TypeScript nos ayude
-interface Pedido {
-  id: number;
-  cliente: string;
-  producto: string;
-  total: number;
-  estado: string;
-}
-
-export default function AdminDashboard() {
-  const [pedidos, setPedidos] = useState<Pedido[]>([
-    { id: 1, cliente: "Joshua (Tester)", producto: "Cocho XL", total: 15500, estado: "Entregado" }
-  ]);
-  const [showModal, setShowModal] = useState(false);
-
-  // Función para agregar un pedido manual rápido
-  const agregarPedidoManual = () => {
-    const nuevo = {
-      id: Date.now(),
-      cliente: "Venta Local",
-      producto: "Cocho Mediano",
-      total: 8500,
-      estado: "Pendiente"
-    };
-    setPedidos([...pedidos, nuevo]);
-    setShowModal(false);
-  };
-
+export default function Home() {
   return (
-    <div className="min-h-screen bg-black text-white p-6 font-sans">
-      {/* Header */}
-      <header className="flex justify-between items-center mb-8 border-b border-yellow-600/30 pb-4">
-        <div>
-          <h1 className="text-3xl font-bold text-yellow-500 tracking-tight">GOLDEN COCHO</h1>
-          <p className="text-zinc-500 text-sm">Panel de Control Operativo</p>
-        </div>
-        <button 
-          onClick={() => setShowModal(true)}
-          className="bg-yellow-600 hover:bg-yellow-500 text-black px-5 py-2 rounded-full font-bold flex items-center gap-2 transition-all transform hover:scale-105"
-        >
-          <Plus size={20} /> Nuevo Pedido Manual
-        </button>
-      </header>
-
-      {/* Grid de Estadísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <StatCard icon={<DollarSign/>} label="Ganancias" value={`$${pedidos.reduce((acc, p) => acc + p.total, 0)}`} color="text-yellow-500" />
-        <StatCard icon={<ShoppingCart/>} label="Pedidos Totales" value={pedidos.length.toString()} color="text-blue-500" />
-        <StatCard icon={<Package/>} label="Inversión" value="$45.000" color="text-red-500" />
-      </div>
-
-      {/* Tabla de Pedidos */}
-      <div className="bg-zinc-900 rounded-2xl border border-zinc-800 overflow-hidden shadow-2xl">
-        <div className="p-6 bg-zinc-800/30">
-          <h2 className="text-xl font-semibold">Historial de Ventas</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-zinc-800/50 text-zinc-400 text-xs uppercase tracking-wider">
-              <tr>
-                <th className="p-4">ID</th>
-                <th className="p-4">Cliente</th>
-                <th className="p-4">Producto</th>
-                <th className="p-4">Total</th>
-                <th className="p-4">Estado</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-800">
-              {pedidos.map((pedido) => (
-                <tr key={pedido.id} className="hover:bg-zinc-800/30 transition-colors">
-                  <td className="p-4 text-zinc-500">#{pedido.id.toString().slice(-4)}</td>
-                  <td className="p-4 font-medium">{pedido.cliente}</td>
-                  <td className="p-4 text-zinc-300">{pedido.producto}</td>
-                  <td className="p-4 text-yellow-500 font-bold">${pedido.total.toLocaleString()}</td>
-                  <td className="p-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${pedido.estado === 'Entregado' ? 'bg-green-900/30 text-green-500' : 'bg-yellow-900/30 text-yellow-500'}`}>
-                      {pedido.estado}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <main className="min-h-screen bg-dark-bg flex flex-col items-center justify-center p-6 text-center">
+      {/* Logo Central */}
+      <div className="mb-8 animate-fade-in">
+        <div className="w-32 h-32 bg-dark-card rounded-full flex items-center justify-center border border-golden-main/30 shadow-[0_0_50px_rgba(252,163,17,0.1)]">
+          <span className="text-golden-main font-heading text-4xl font-black italic">GC</span>
         </div>
       </div>
 
-      {/* Modal Simple de Prueba */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-yellow-600/50 p-8 rounded-2xl max-w-sm w-full">
-            <h2 className="text-2xl font-bold mb-4 text-yellow-500">¿Registrar venta rápida?</h2>
-            <p className="text-zinc-400 mb-6 text-sm">Esto agregará un "Cocho Mediano" de $8.500 al historial de hoy.</p>
-            <div className="flex gap-4">
-              <button onClick={agregarPedidoManual} className="flex-1 bg-yellow-600 text-black font-bold py-2 rounded-lg">Confirmar</button>
-              <button onClick={() => setShowModal(false)} className="flex-1 bg-zinc-800 text-white font-bold py-2 rounded-lg">Cancelar</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+      <h1 className="font-heading text-4xl md:text-6xl text-soft-gray mb-4 font-bold italic tracking-tighter">
+        GOLDEN <span className="text-golden-main">COCHO</span>
+      </h1>
+      
+      <p className="font-sans text-zinc-500 mb-12 max-w-xs">
+        Gestión operativa premium para el mejor pastel de choclo de Aysén.
+      </p>
 
-// Componente pequeño para las tarjetas de stats
-function StatCard({ icon, label, value, color }: any) {
-  return (
-    <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 shadow-lg">
-      <div className="flex items-center gap-4">
-        <div className={`p-3 bg-zinc-800 rounded-xl ${color}`}>{icon}</div>
-        <div>
-          <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest">{label}</p>
-          <h3 className="text-2xl font-black">{value}</h3>
-        </div>
-      </div>
-    </div>
+      {/* Botón de Acceso Admin */}
+      <Link 
+        href="/admin/login" 
+        className="group relative bg-golden-main text-black font-heading font-black px-12 py-4 rounded-full overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-lg shadow-golden-main/20"
+      >
+        <span className="relative z-10">INGRESAR COMO ADMIN</span>
+        <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+      </Link>
+
+      <footer className="fixed bottom-8 text-[10px] text-zinc-700 uppercase tracking-[0.2em]">
+        Región de Aysén • Chile 
+      </footer>
+    </main>
   );
 }
