@@ -15,7 +15,7 @@ export default function AdminDashboard() {
   const [isOpen, setIsOpen] = useState(false);
 
   const shareLink = () => {
-    const url = `${window.location.origin}/catalogo`;
+    const url = `${window.location.origin}/cliente/mode/catalogo`;
     navigator.clipboard.writeText(url);
     alert("¡Link de catálogo copiado!");
   };
