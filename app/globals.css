@@ -131,3 +131,8 @@ label {
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
+select {
+  text-align: center;
+  text-align-last: center;
+  -moz-text-align-last: center;
+}

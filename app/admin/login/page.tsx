@@ -103,7 +103,7 @@ export default function LoginPage() {
         {/* Footer Ajustado (Más pequeño y discreto) */}
         <footer className="fixed bottom-6 flex flex-col items-center gap-1 opacity-50">
           <p className="text-[7px] text-zinc-500 uppercase tracking-[0.6em] font-bold text-center">
-            Personal Autorizado <span className="text-zinc-800 mx-1">•</span> Patagonia Chilena
+            Personal Autorizado <span className="text-zinc-800 mx-1">•</span> Golden Choclo
           </p>
         </footer>
       </div>

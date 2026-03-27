@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
+import { ReactNode } from 'react';
 
 export default function NavAdmin() {
   const [isOpen, setIsOpen] = useState(false);
@@ -104,7 +105,19 @@ export default function NavAdmin() {
   );
 }
 
-function NavLink({ href, icon, label, onClick, active }: { href: string, icon: any, label: string, onClick: () => void, active: boolean }) {
+function NavLink({
+  href,
+  icon,
+  label,
+  onClick,
+  active,
+}: {
+  href: string;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  active: boolean;
+}) {
   return (
     <Link 
       href={href}

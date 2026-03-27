@@ -42,7 +42,7 @@ export default function Home() {
         {/* Título y Subtítulos */}
         <div className="space-y-1 mb-10 relative">
           <h1 className="font-heading text-4xl md:text-5xl text-white font-black italic tracking-tighter uppercase leading-none">
-            GOLDEN <span className="text-golden-main drop-shadow-[0_0_10px_rgba(252,163,17,0.2)]">COCHO</span>
+            GOLDEN <span className="text-golden-main drop-shadow-[0_0_10px_rgba(252,163,17,0.2)]">Choclo</span>
           </h1>
           <p className="font-sans text-zinc-500 text-[9px] uppercase tracking-[0.4em] font-black opacity-70">
             • Gestión operativa premium •
