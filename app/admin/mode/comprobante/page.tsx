@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Search, ArrowLeft, Plus } from 'lucide-react';
 import Boleta from '@/components/ui/Boleta';
 import { supabase } from '@/lib/supabase';
-import { formatOrderItems, GcOrder, toPedidoTipoUi } from '@/lib/gc-data';
+import { formatOrderItems, GcOrder, toPedidoTipoUi, formatFolio } from '@/lib/gc-data';
 
 interface Pedido {
   id: string;
@@ -44,14 +44,14 @@ export default function ComprobantesPage() {
         return;
       }
       const mapped = ((data ?? []) as GcOrder[]).map((row) => ({
-        id: row.folio ? `#${row.folio.toString().padStart(8, '0')}` : row.id,
+        id: formatFolio(row.folio),
         cliente: row.client_name,
         items: formatOrderItems(row.items),
         total: row.total ?? 0,
         fecha: row.created_at
           ? new Date(row.created_at).toLocaleDateString('es-CL')
           : new Date().toLocaleDateString('es-CL'),
-        tipo: toPedidoTipoUi(row.delivery_type),
+        tipo: toPedidoTipoUi(row.delivery_type) as 'Retiro' | 'Delivery',
         descuento: row.discount ?? 0,
         nota: row.note ?? '',
         delivery: row.shipping_cost ?? 0,
@@ -131,9 +131,9 @@ export default function ComprobantesPage() {
                 placeholder="BUSCAR POR ID O NOMBRE..."
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                className="w-full bg-zinc-900/40 border border-white/5 rounded-3xl py-5 pl-8 pr-14 text-xs focus:outline-none focus:border-golden-main/30 transition-all font-black italic tracking-widest uppercase"
+                className="w-full bg-black/50 border border-white/5 rounded-[2rem] py-6 px-10 text-xs focus:outline-none focus:border-golden-main/40 outline-none transition-all font-black italic tracking-widest uppercase text-center text-white/60 focus:text-white placeholder:text-zinc-800"
               />
-              <Search className="absolute right-6 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-golden-main transition-colors" size={20} />
+              <Search className="absolute right-8 top-1/2 -translate-y-1/2 text-zinc-800 group-focus-within:text-golden-main/50 transition-colors" size={20} />
             </div>
 
             {/* LISTADO */}
@@ -159,29 +159,7 @@ export default function ComprobantesPage() {
           </div>
         ) : (
           <div className="animate-in fade-in zoom-in-95 duration-500">
-            {/* PANEL AJUSTE DELIVERY */}
-            {pedidoSeleccionado.tipo === 'Delivery' && (
-              <div className="mb-8 bg-zinc-900/40 border border-white/5 p-8 rounded-[2.5rem] flex flex-col items-center shadow-2xl">
-                <div className="flex items-center gap-2 mb-4 text-golden-main">
-                   <Plus size={14} strokeWidth={3} />
-                   <p className="text-[10px] font-black uppercase tracking-[0.3em] italic">Agregar Costo Delivery</p>
-                </div>
-                
-                <div className="relative w-full max-w-[200px]">
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 text-zinc-600 font-black text-xl">$</span>
-                  <input 
-                    ref={inputRef}
-                    type="number" 
-                    inputMode="numeric"
-                    placeholder="0000"
-                    value={costoEnvio}
-                    onChange={(e) => setCostoEnvio(e.target.value === "" ? "" : Number(e.target.value))}
-                    className="w-full bg-transparent border-b-2 border-zinc-800 py-2 pl-6 text-center text-3xl font-black text-white focus:outline-none focus:border-golden-main transition-colors placeholder:text-zinc-800"
-                  />
-                </div>
-                <p className="mt-4 text-[8px] text-zinc-600 uppercase font-black tracking-widest">El monto se sumará automáticamente</p>
-              </div>
-            )}
+            {/* Se eliminó el panel de ajuste de delivery manual por solicitud del usuario */}
 
             <Boleta 
               pedido={{

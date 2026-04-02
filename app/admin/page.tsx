@@ -1,20 +1,26 @@
 "use client";
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { 
   TrendingUp, DollarSign, Package, Share2, Plus, 
-  ArrowUpRight, ArrowDownRight, Power, ChevronRight, X, Save, AlertTriangle, CheckCircle2,
-  Wallet, Calculator, Receipt
+  ArrowUpRight, ArrowDownRight, Power, X, Save, AlertTriangle, CheckCircle2,
+  Wallet
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { GcOrder, GcTransaction } from '@/lib/gc-data';
+import { orderCreatedTime } from '@/lib/gc-data';
 import Link from 'next/link';
+import { useOrders } from '@/hooks/useOrders';
+import { useTransactions } from '@/hooks/useTransactions';
 
+/**
+ * Dashboard principal del panel de administración.
+ * Muestra el resumen financiero, movimientos del día, estado de la tienda
+ * y permite registrar gastos rápidamente.
+ */
 export default function AdminDashboard() {
+  const { orders, lastMonthOrders, lastFolio, refresh: refreshOrders } = useOrders();
+  const { transactions, refresh: refreshTransactions } = useTransactions();
+
   const [isOpen, setIsOpen] = useState(false);
-  const [lastFolio, setLastFolio] = useState<number>(0);
-  const [orders, setOrders] = useState<GcOrder[]>([]);
-  const [transactions, setTransactions] = useState<GcTransaction[]>([]);
-  const [lastMonthOrders, setLastMonthOrders] = useState<GcOrder[]>([]);
   const [isGastoModalOpen, setIsGastoModalOpen] = useState(false);
   const [isCajaModalOpen, setIsCajaModalOpen] = useState(false);
   const [nuevoGasto, setNuevoGasto] = useState({ monto: '', desc: '' });
@@ -22,35 +28,22 @@ export default function AdminDashboard() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const loadData = async () => {
-    const now = new Date();
-    const firstDayCurrent = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const firstDayLast = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
+  // Sincronizar estado de apertura desde la BD al montar
+  React.useEffect(() => {
+    supabase.from('gc_settings').select('value').eq('key', 'is_open').single()
+      .then(({ data, error }) => {
+        if (!error && data) setIsOpen(data.value === 'true');
+      });
+  }, []);
 
-    const [currentOrders, prevOrders, trxData, settingsData, lastOrderData] = await Promise.all([
-      supabase.from('gc_orders').select('*').gte('created_at', firstDayCurrent).order('created_at', { ascending: false }),
-      supabase.from('gc_orders').select('*').gte('created_at', firstDayLast).lt('created_at', firstDayCurrent),
-      supabase.from('gc_transactions').select('*').order('created_at', { ascending: false }),
-      supabase.from('gc_settings').select('key,value').in('key', ['is_open']),
-      supabase.from('gc_orders').select('folio').order('folio', { ascending: false }).limit(1),
-    ]);
-
-    setOrders((currentOrders.data ?? []) as GcOrder[]);
-    setLastMonthOrders((prevOrders.data ?? []) as GcOrder[]);
-    setTransactions((trxData.data ?? []) as GcTransaction[]);
-    setIsOpen(settingsData.data?.find((s) => s.key === 'is_open')?.value === 'true');
-    const maxFolio = lastOrderData.data?.[0]?.folio ?? 0;
-    setLastFolio(maxFolio);
-  };
-
-  useEffect(() => { void loadData(); }, []);
-
+  /** Alterna el estado de la tienda (abierta/cerrada) y lo persiste en Supabase. */
   const toggleStoreStatus = async () => {
     const newStatus = !isOpen;
     setIsOpen(newStatus);
     await supabase.from('gc_settings').upsert({ key: 'is_open', value: newStatus.toString() });
   };
 
+  /** Resumen de ventas del día actual filtrado desde los pedidos del mes. */
   const resumenHoy = useMemo(() => {
     const hoy = new Date().toISOString().split('T')[0];
     const ventasHoy = orders.filter(o => o.created_at?.startsWith(hoy));
@@ -58,6 +51,7 @@ export default function AdminDashboard() {
     return { list: ventasHoy, total: totalVentas };
   }, [orders]);
 
+  /** Balance del mes actual vs el mes anterior. */
   const { balance, diffPercentage, isPositive } = useMemo(() => {
     const currentTotal = orders.reduce((acc, o) => acc + (o.total ?? 0), 0);
     const lastTotal = lastMonthOrders.reduce((acc, o) => acc + (o.total ?? 0), 0);
@@ -66,10 +60,12 @@ export default function AdminDashboard() {
     return { balance: currentTotal, diffPercentage: Math.abs(Math.round(diff * 10) / 10), isPositive: diff >= 0 };
   }, [orders, lastMonthOrders]);
 
+  /** Total de gastos registrados en el mes a partir de transactions. */
   const insumosTotal = useMemo(() => 
     transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + (t.amount ?? 0), 0)
   , [transactions]);
 
+  /** Persiste un nuevo gasto en `gc_transactions` y recarga los datos. */
   const guardarGasto = async () => {
     if (!nuevoGasto.monto || !nuevoGasto.desc) {
       setShowValidationError(true);
@@ -78,11 +74,11 @@ export default function AdminDashboard() {
     }
     setLoading(true);
     const { error } = await supabase.from('gc_transactions').insert([
-      { amount: Number(nuevoGasto.monto), description: nuevoGasto.desc, type: 'expense' }
+      { amount: Number(nuevoGasto.monto), concept: nuevoGasto.desc, category: 'general', type: 'expense' }
     ]);
     if (!error) {
       setSaveSuccess(true);
-      await loadData();
+      await Promise.all([refreshOrders(), refreshTransactions()]);
       setTimeout(() => {
         setIsGastoModalOpen(false);
         setSaveSuccess(false);
@@ -96,7 +92,7 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-black text-white p-4 md:p-8 pb-24 antialiased font-sans">
       <div className="max-w-6xl mx-auto">
         
-        {/* 1. HEADER MAESTRO (Corregido para llegar a ambos lados) */}
+        {/* Header fijo */}
         <header className="fixed top-0 left-0 right-0 z-40 bg-black/60 backdrop-blur-xl border-b border-white/5 py-4 flex items-center justify-center px-6">
           <div className="flex flex-col items-center justify-center leading-[0.7] text-center scale-[0.7] md:scale-[0.8]"> 
             <span className="font-heading text-lg font-black italic tracking-tighter uppercase text-white opacity-60">PANEL</span>
@@ -104,13 +100,21 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        {/* Espaciador para el header fijo */}
         <div className="h-20" />
 
         <p className="text-[7px] text-zinc-500 uppercase tracking-[0.5em] font-black italic text-center mb-8">Gestión Golden Choclo Patagonia</p>
 
+        {/* Acciones rápidas */}
         <div className="flex gap-3 mb-10">
-          <button className="flex-1 bg-zinc-900/50 border border-white/5 text-golden-main py-5 rounded-[2rem] flex items-center justify-center gap-3 active:scale-95 transition-all text-center">
+          <button 
+            onClick={async () => {
+              const url = `${window.location.origin}/cliente/mode/catalogo`;
+              try { await navigator.clipboard.writeText(url); } catch { /* Falla silenciosa en contextos sin permisos */ }
+              const text = `🌽 *PIDE ONLINE - GOLDEN CHOCLO*\n\n¡Ingresa a nuestro catálogo digital y arma tu pedido aquí!\n\n📍 ${url}`;
+              window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
+            }}
+            className="flex-1 bg-zinc-900/50 border border-white/5 text-golden-main py-5 rounded-[2rem] flex items-center justify-center gap-3 active:scale-95 transition-all text-center"
+          >
             <Share2 size={18} />
             <span className="text-[10px] font-black uppercase italic tracking-widest">Compartir</span>
           </button>
@@ -121,7 +125,10 @@ export default function AdminDashboard() {
           </Link>
         </div>
 
+        {/* Tarjetas de métricas */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+
+          {/* Estado de la tienda */}
           <div onClick={toggleStoreStatus} className={`col-span-2 md:col-span-2 rounded-[2.8rem] p-7 flex flex-col justify-between transition-all duration-700 border-2 min-h-[185px] cursor-pointer ${isOpen ? 'bg-green-500/10 border-green-500/20 shadow-[0_0_40px_rgba(34,197,94,0.05)]' : 'bg-red-500/10 border-red-500/20'}`}>
             <div className="flex justify-between items-start">
               <div className={`p-4 rounded-2xl ${isOpen ? 'bg-green-500 text-black shadow-[0_0_20px_rgba(34,197,94,0.4)]' : 'bg-red-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.4)]'}`}>
@@ -136,6 +143,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
+          {/* Balance del mes */}
           <div className="col-span-2 md:col-span-2 bg-zinc-900 border border-white/5 rounded-[2.8rem] p-7 flex flex-col justify-between relative overflow-hidden min-h-[185px]">
             <div className="flex justify-between items-start text-zinc-500 relative z-10">
               <p className="text-[9px] font-black uppercase italic">Balance Mes</p>
@@ -151,9 +159,10 @@ export default function AdminDashboard() {
             <DollarSign className="absolute -right-6 -bottom-6 text-white/5 w-32 h-32 transform -rotate-12 opacity-30" />
           </div>
 
+          {/* Gastos del mes */}
           <div className="col-span-2 md:col-span-2 bg-zinc-900 border border-white/5 rounded-[2.8rem] p-7 flex flex-col justify-between min-h-[185px]">
             <div className="flex justify-between items-start text-zinc-500">
-              <p className="text-[9px] font-black uppercase italic">Egresos Mes</p>
+              <p className="text-[9px] font-black uppercase italic">Gastos Mes</p>
               <Package size={18} />
             </div>
             <div>
@@ -167,6 +176,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
+          {/* Lista de movimientos del día */}
           <div className="col-span-2 md:col-span-6 bg-zinc-900/30 border border-white/5 rounded-[3rem] p-6 md:p-8 mt-2 shadow-2xl">
             <div className="flex justify-between items-center mb-6 px-2">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 italic leading-none">Movimientos del Día</h3>
@@ -191,7 +201,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="text-right leading-none">
                     <p className="text-sm font-black text-golden-main italic leading-none">+${(order.total ?? 0).toLocaleString('es-CL')}</p>
-                    <p className="text-[7px] text-zinc-700 font-bold uppercase mt-1.5">{new Date(order.created_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</p>
+                    <p className="text-[7px] text-zinc-700 font-bold uppercase mt-1.5">{orderCreatedTime(order.created_at)}</p>
                   </div>
                 </div>
               ))}
@@ -199,7 +209,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* MODAL CAJA (Estilo Ticket/Boleta) */}
+        {/* MODAL CAJA — Reporte del día */}
         {isCajaModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md bg-black/90 animate-in fade-in duration-300">
             <div className="bg-[#f4f4f4] text-black w-full max-w-sm rounded-sm p-8 shadow-2xl relative flex flex-col max-h-[85vh] font-mono border-t-[12px] border-golden-main">
@@ -233,7 +243,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* MODAL GASTO */}
+        {/* MODAL GASTO — Ingreso rápido de un gasto */}
         {isGastoModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md bg-black/90 animate-in fade-in duration-300">
             <div className="bg-zinc-900 border border-white/10 w-full max-w-xs rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">
@@ -285,7 +295,7 @@ export default function AdminDashboard() {
         )}
 
         <div className="mt-12 text-center opacity-10">
-           <p className="text-[6px] uppercase tracking-[1.5em] font-black italic">PATAGONIA CORE • V 2.5</p>
+           <p className="text-[6px] uppercase tracking-[1.5em] font-black italic">PATAGONIA CORE • V 3.0</p>
         </div>
       </div>
     </div>

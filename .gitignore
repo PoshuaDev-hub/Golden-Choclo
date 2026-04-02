@@ -40,4 +40,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# ide
 .cursor
+.vscode/
+
+# system files
+.DS_Store
+Thumbs.db

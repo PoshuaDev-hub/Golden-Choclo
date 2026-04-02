@@ -75,9 +75,10 @@ export default function VentaManualPage() {
       return;
     }
 
-    if (!cliente.nombre.trim() || !cliente.tel.trim()) {
-      const confirmar = confirm("ADVERTENCIA: ¿Seguro que quieres agregar un pedido sin información?");
-      if (!confirmar) return;
+    if (!cliente.nombre.trim()) {
+      setError("Por favor, ingresa el nombre del cliente.");
+      setTimeout(() => setError(""), 3000);
+      return;
     }
 
     setSaving(true);

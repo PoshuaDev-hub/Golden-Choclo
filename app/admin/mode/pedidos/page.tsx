@@ -15,7 +15,8 @@ import {
 } from '@/lib/gc-data';
 
 type PedidoUi = {
-  id: string;
+  id: string;        // Folio formateado (#00000001)
+  rawId: string;     // UUID real de la BD para operaciones de update
   cliente: string;
   items: string;
   total: number;
@@ -105,7 +106,7 @@ export default function PedidosPage() {
     const { error: updateError } = await supabase
       .from('gc_orders')
       .update({ status: toDbStatus(nuevoEstado) })
-      .eq('id', (pedido as any).rawId);
+      .eq('id', pedido.rawId);
 
     if (updateError) {
       setError(updateError.message);
@@ -127,7 +128,7 @@ export default function PedidosPage() {
     
     if (Object.keys(payload).length === 0) return;
 
-    const { error: updateError } = await supabase.from('gc_orders').update(payload).eq('id', (pActual as any).rawId);
+    const { error: updateError } = await supabase.from('gc_orders').update(payload).eq('id', pActual.rawId);
     if (updateError) setError(updateError.message);
   };
 

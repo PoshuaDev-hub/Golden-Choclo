@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Lock, AlertCircle, Loader2 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 export default function LoginPage() {
   const [clave, setClave] = useState('');
@@ -15,15 +16,28 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
 
-    setTimeout(() => {
-      if (clave === 'floki') {
+    try {
+      // Obtener la clave desde la BD (fallback a 'floki' si aún no fue configurada)
+      const { data } = await supabase
+        .from('gc_settings')
+        .select('value')
+        .eq('key', 'admin_password')
+        .single();
+
+      const claveCorrecta = data?.value ?? 'floki';
+
+      if (clave === claveCorrecta) {
         localStorage.setItem('gc_admin', 'true');
         router.push('/admin');
+        // No hacemos setLoading(false) aquí para mantener el spinner durante la navegación
       } else {
         setError('Clave incorrecta. Inténtalo de nuevo.');
         setLoading(false);
       }
-    }, 800);
+    } catch {
+      setError('Error de conexión. Verifica tu red e intenta de nuevo.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -64,8 +78,6 @@ export default function LoginPage() {
               <input
                 type="password"
                 placeholder="••••••••"
-                // Eliminamos md:text-sm y dejamos text-base fijo para engañar al navegador
-                // Ajustamos el p-3 para que se vea compacto aunque la letra sea de 16px
                 className="w-full bg-black/40 border border-white/10 p-3 pr-10 rounded-xl text-white text-base outline-none focus:border-golden-main/40 focus:ring-1 focus:ring-golden-main/10 transition-all font-sans"
                 value={clave}
                 onChange={(e) => setClave(e.target.value)}

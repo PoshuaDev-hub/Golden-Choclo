@@ -72,7 +72,8 @@ export default function FinanzasPage() {
     setSaving(true);
     const { error: insError } = await supabase.from('gc_transactions').insert({
       amount: Number(nuevoGasto.monto),
-      description: nuevoGasto.desc,
+      concept: nuevoGasto.desc,
+      category: 'general',
       type: 'expense',
       created_at: new Date().toISOString()
     });
@@ -167,8 +168,8 @@ export default function FinanzasPage() {
                   <div className="flex items-center gap-4 text-left">
                     <div className="w-10 h-10 rounded-xl bg-zinc-900 flex items-center justify-center text-zinc-600 group-hover:text-red-500 transition-colors"><Receipt size={18} /></div>
                     <div>
-                      <p className="text-[11px] font-black text-white uppercase italic leading-none">{gasto.description}</p>
-                      <p className="text-[8px] text-zinc-600 uppercase font-black mt-2 tracking-widest italic opacity-60">{new Date(gasto.created_at).toLocaleDateString('es-CL')}</p>
+                      <p className="text-[11px] font-black text-white uppercase italic leading-none">{gasto.concept}</p>
+                      <p className="text-[8px] text-zinc-600 uppercase font-black mt-2 tracking-widest italic opacity-60">{new Date(gasto.created_at || new Date().toISOString()).toLocaleDateString('es-CL')}</p>
                     </div>
                   </div>
                   <p className="text-sm font-black text-red-500 italic">-${gasto.amount?.toLocaleString('es-CL')}</p>

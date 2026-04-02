@@ -10,7 +10,7 @@ import {
   X, 
   LogOut,
   PlusCircle,
-  Receipt // ✅ IMPORTANTE: Añadimos Receipt aquí
+  Receipt
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
@@ -66,7 +66,6 @@ export default function NavAdmin() {
               
               <NavLink href="/admin/mode/productos" icon={<Package size={20}/>} label="Productos" active={pathname === '/admin/mode/productos'} onClick={() => setIsOpen(false)} />
               
-              {/* ✅ OPCIÓN: Comprobantes con icono Receipt */}
               <NavLink href="/admin/mode/comprobante" icon={<Receipt size={20}/>} label="Comprobantes" active={pathname === '/admin/mode/comprobante'} onClick={() => setIsOpen(false)} />
               
               <NavLink href="/admin/mode/finanzas" icon={<DollarSign size={20}/>} label="Finanzas" active={pathname === '/admin/mode/finanzas'} onClick={() => setIsOpen(false)} />

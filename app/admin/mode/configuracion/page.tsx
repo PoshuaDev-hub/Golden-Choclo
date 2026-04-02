@@ -59,7 +59,7 @@ export default function ConfiguracionPage() {
     setSavingSection(seccion);
     setError('');
     
-    let ops = [];
+    let ops: ReturnType<typeof upsertSetting>[] = [];
     switch (seccion) {
       case 'Horarios':
         ops = [
@@ -85,9 +85,33 @@ export default function ConfiguracionPage() {
       case 'Mensaje':
         ops = [upsertSetting('closing_message', mensajeCierre)];
         break;
-      case 'Seguridad':
+      case 'Seguridad': {
+        // Validaciones antes de cambiar la clave
+        if (!claves.actual || !claves.nueva) {
+          setError('Debes completar todos los campos de clave.');
+          setSavingSection('');
+          return;
+        }
+        if (claves.nueva.length < 4) {
+          setError('La nueva clave debe tener al menos 4 caracteres.');
+          setSavingSection('');
+          return;
+        }
+        // Verificar la clave actual contra la BD antes de guardar
+        const { data: claveData } = await supabase
+          .from('gc_settings')
+          .select('value')
+          .eq('key', 'admin_password')
+          .single();
+        const claveActualBD = claveData?.value ?? 'floki';
+        if (claves.actual !== claveActualBD) {
+          setError('La clave actual no es correcta.');
+          setSavingSection('');
+          return;
+        }
         ops = [upsertSetting('admin_password', claves.nueva)];
         break;
+      }
     }
 
     const results = await Promise.all(ops);
@@ -166,8 +190,9 @@ export default function ConfiguracionPage() {
                 <textarea 
                   value={mensajeCierre}
                   onChange={(e) => setMensajeCierre(e.target.value)}
-                  className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-[10px] font-bold text-zinc-300 focus:outline-none focus:border-golden-main/30 transition-all italic placeholder:text-zinc-800"
+                  className="w-full bg-black/50 border border-white/5 rounded-2xl p-6 text-xs font-black text-white/60 focus:text-white focus:border-golden-main/40 outline-none transition-all text-center italic placeholder:text-zinc-800"
                   rows={2}
+                  placeholder="Ej: Cerrado este finde, volvemos pronto."
                 />
               </div>
             )}
@@ -193,7 +218,8 @@ export default function ConfiguracionPage() {
                   type="number" 
                   value={costoEnvio}
                   onChange={(e) => setCostoEnvio(e.target.value)}
-                  className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 text-center font-black italic focus:border-orange-500/30 outline-none text-white transition-all text-xs"
+                  className="w-full bg-black/50 border border-white/5 rounded-2xl py-5 text-center font-black text-white/60 focus:text-white focus:border-orange-500/40 outline-none transition-all text-sm italic placeholder:text-zinc-800"
+                  placeholder="0"
                 />
               </div>
             </div>
@@ -216,9 +242,9 @@ export default function ConfiguracionPage() {
               <textarea 
                 value={datosBancarios}
                 onChange={(e) => setDatosBancarios(e.target.value)}
-                className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-[10px] font-bold text-zinc-300 focus:outline-none focus:border-purple-500/30 transition-all italic placeholder:text-zinc-800"
+                className="w-full bg-black/50 border border-white/5 rounded-2xl p-6 text-[11px] font-black text-white/60 focus:text-white focus:border-purple-500/40 outline-none transition-all text-center italic placeholder:text-zinc-800"
                 rows={3}
-                placeholder="Banco: Banco Estado&#10;Cuenta: 123456789&#10;Titular: Golden Choclo Ltda."
+                placeholder="BANCO: BANCOESTADO&#10;CUENTA RUT: 12.345.678-9&#10;NOMBRE: GOLDEN CHOCLO"
               />
             </div>
           </section>
@@ -239,52 +265,20 @@ export default function ConfiguracionPage() {
                 type="text"
                 value={whatsappNumero}
                 onChange={(e) => setWhatsappNumero(e.target.value)}
-                placeholder="WhatsApp (ej. 569XXXXXXXX)"
-                className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-3 text-[10px] font-black italic focus:border-cyan-500/30 outline-none text-center"
+                placeholder="WHATSAPP (EJ. 569XXXXXXXX)"
+                className="w-full bg-black/50 border border-white/5 rounded-2xl py-4 text-center font-black text-white/60 focus:text-white focus:border-cyan-500/40 outline-none transition-all text-[11px] placeholder:text-zinc-800"
               />
               <input
                 type="text"
                 value={instagramHandle}
                 onChange={(e) => setInstagramHandle(e.target.value)}
-                placeholder="Instagram @usuario"
-                className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-3 text-[10px] font-black italic focus:border-cyan-500/30 outline-none text-center"
+                placeholder="INSTAGRAM (EJ. @USUARIO)"
+                className="w-full bg-black/50 border border-white/5 rounded-2xl py-4 text-center font-black text-white/60 focus:text-white focus:border-cyan-500/40 outline-none transition-all text-[11px] placeholder:text-zinc-800"
               />
             </div>
           </section>
 
-          {/* SECCIÓN 4: HORARIOS */}
-          <section className="bg-zinc-900/20 border border-white/5 rounded-[2.5rem] p-6">
-            <div className="flex items-center justify-between mb-6 px-1 text-left">
-              <div className="flex items-center gap-3 text-golden-main/80">
-                <Clock size={18} />
-                <h4 className="text-[10px] font-black uppercase tracking-widest italic text-white/40">Horarios</h4>
-              </div>
-              <button onClick={() => handleSave('Horarios')} className="text-golden-main hover:scale-110 active:scale-95 transition-all">
-                <Save size={18} />
-              </button>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2 text-left">
-                <label className="text-[7px] text-zinc-600 font-black uppercase tracking-widest ml-1">Semana</label>
-                <input 
-                  type="text" 
-                  value={horarioSemana}
-                  onChange={(e) => setHorarioSemana(e.target.value)}
-                  className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-4 text-[9px] font-black italic focus:border-golden-main/30 outline-none text-center"
-                />
-              </div>
-              <div className="space-y-2 text-left">
-                <label className="text-[7px] text-zinc-600 font-black uppercase tracking-widest ml-1">Finde</label>
-                <input 
-                  type="text" 
-                  value={horarioFinde}
-                  onChange={(e) => setHorarioFinde(e.target.value)}
-                  className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-4 text-[9px] font-black italic focus:border-golden-main/30 outline-none text-center"
-                />
-              </div>
-            </div>
-          </section>
+            {/* La sección de horarios fue removida por solicitud del usuario */}
 
           {/* SECCIÓN 4: SEGURIDAD ADMIN */}
           <section className="bg-zinc-900/20 border border-white/5 rounded-[2.5rem] p-6">
@@ -298,17 +292,17 @@ export default function ConfiguracionPage() {
                 <input 
                   type="password" placeholder="CLAVE ACTUAL" value={claves.actual}
                   onChange={(e) => setClaves({...claves, actual: e.target.value})}
-                  className="w-full bg-black border border-white/5 rounded-xl px-4 py-4 text-[9px] font-black tracking-widest focus:border-golden-main/40 outline-none opacity-50 focus:opacity-100 transition-all text-center uppercase" 
+                  className="w-full bg-black/80 border border-white/10 rounded-2xl py-5 text-center font-black text-white/60 focus:text-white focus:border-golden-main/40 outline-none transition-all text-xs tracking-[0.3em]" 
                 />
                 <input 
                   type="password" placeholder="CLAVE MAESTRA" value={claves.maestra}
                   onChange={(e) => setClaves({...claves, maestra: e.target.value})}
-                  className="w-full bg-black border border-white/5 rounded-xl px-4 py-4 text-[9px] font-black tracking-widest focus:border-golden-main/40 outline-none opacity-50 focus:opacity-100 transition-all text-center uppercase" 
+                  className="w-full bg-black/80 border border-white/10 rounded-2xl py-5 text-center font-black text-white/60 focus:text-white focus:border-golden-main/40 outline-none transition-all text-xs tracking-[0.3em]" 
                 />
                 <input 
                   type="password" placeholder="NUEVA CLAVE" value={claves.nueva}
                   onChange={(e) => setClaves({...claves, nueva: e.target.value})}
-                  className="w-full bg-black border border-white/5 rounded-xl px-4 py-4 text-[9px] font-black tracking-widest focus:border-golden-main/40 outline-none opacity-50 focus:opacity-100 transition-all text-center uppercase" 
+                  className="w-full bg-black/80 border border-white/10 rounded-2xl py-5 text-center font-black text-white/60 focus:text-white focus:border-golden-main/40 outline-none transition-all text-xs tracking-[0.3em]" 
                 />
                 <div className="flex gap-2">
                   <button onClick={() => setShowSecurityModel(false)} className="flex-1 py-3 text-[8px] font-black uppercase bg-zinc-800 rounded-xl">Cancelar</button>

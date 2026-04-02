@@ -1,9 +1,10 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { Plus, ShoppingBag, Star, Clock, Info } from 'lucide-react';
+import Image from 'next/image';
+import { Plus, ShoppingBag, Star, Clock, Info, MessageCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { GcProduct } from '@/lib/gc-data';
+import { GcProduct, ProductVariant } from '@/lib/gc-data';
 
 export default function CatalogoCliente() {
   const router = useRouter();
@@ -18,44 +19,47 @@ export default function CatalogoCliente() {
 
   useEffect(() => {
     const fetchData = async () => {
-      // 1. Consultar Configuración (Estado y Horario)
-      const { data: settings } = await supabase.from('gc_settings').select('key, value');
-      
-      const openVal = settings?.find(s => s.key === 'is_open')?.value;
-      const horarioVal = settings?.find(s => s.key === 'business_hours')?.value;
-      const messageVal = settings?.find(s => s.key === 'closing_message')?.value;
-      const whatsappVal = settings?.find(s => s.key === 'whatsapp_number')?.value;
-      const instagramVal = settings?.find(s => s.key === 'instagram')?.value;
-      
-      setIsOpen(openVal === 'true');
-      setHorario(horarioVal || 'Lunes a Sábado: 12:00 - 20:00');
-      setClosingMessage(messageVal || 'Estamos preparando la mejor cosecha.');
-      setWhatsapp(whatsappVal || '');
-      setInstagram(instagramVal || '');
+      try {
+        // Todas las consultas en paralelo para minimizar el tiempo de carga
+        const [settingsRes, prodsRes, popularRes] = await Promise.all([
+          supabase.from('gc_settings').select('key, value'),
+          supabase.from('gc_products').select('*').eq('available', true).order('created_at', { ascending: false }),
+          supabase.from('gc_orders').select('items').order('created_at', { ascending: false }).limit(100),
+        ]);
 
-      // 2. Consultar Productos
-      const { data: prods } = await supabase
-        .from('gc_products')
-        .select('*')
-        .eq('available', true)
-        .order('created_at', { ascending: false });
+        // Procesar configuraciones
+        const settings = settingsRes.data ?? [];
+        const openVal  = settings.find(s => s.key === 'is_open')?.value;
+        const horarioVal  = settings.find(s => s.key === 'business_hours')?.value;
+        const messageVal  = settings.find(s => s.key === 'closing_message')?.value;
+        const whatsappVal = settings.find(s => s.key === 'whatsapp_number')?.value;
+        const instagramVal = settings.find(s => s.key === 'instagram')?.value;
 
-      // 3. Lógica Automática de "Populares" (Basado en historial real)
-      const { data: popularData } = await supabase.from('gc_orders').select('items');
-      const counts: Record<string, number> = {};
-      
-      popularData?.forEach(order => {
-        if (Array.isArray(order.items)) {
-          order.items.forEach((item: any) => {
-            counts[item.id] = (counts[item.id] || 0) + (item.cantidad || 1);
-          });
-        }
-      });
-      
-      const sortedIds = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 2);
-      setPopularIds(sortedIds);
-      setProductos((prods ?? []) as GcProduct[]);
-      setLoading(false);
+        setIsOpen(openVal === 'true');
+        setHorario(horarioVal || 'Lunes a Sábado: 12:00 - 20:00');
+        setClosingMessage(messageVal || 'Estamos preparando la mejor cosecha.');
+        setWhatsapp(whatsappVal || '');
+        setInstagram(instagramVal || '');
+
+        // Procesar productos
+        setProductos((prodsRes.data ?? []) as GcProduct[]);
+
+        // Calcular productos más vendidos
+        const counts: Record<string, number> = {};
+        (popularRes.data ?? []).forEach(order => {
+          if (Array.isArray(order.items)) {
+            order.items.forEach((item: { id?: string; cantidad?: number }) => {
+              if (item.id) counts[item.id] = (counts[item.id] || 0) + (item.cantidad || 1);
+            });
+          }
+        });
+        const sortedIds = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 2);
+        setPopularIds(sortedIds);
+      } catch {
+        // Ante cualquier fallo de red, mostramos el catálogo vacío en lugar de pantalla infinita
+      } finally {
+        setLoading(false);
+      }
     };
 
     void fetchData();
@@ -74,12 +78,23 @@ export default function CatalogoCliente() {
         LOCAL <span className="text-golden-main">CERRADO</span>
       </h1>
       <p className="text-zinc-500 font-bold uppercase tracking-widest text-[9px] max-w-xs italic mb-8">
-        {closingMessage} <br /> Revisa nuestro horario de atención abajo.
+        {closingMessage} <br /> Estate atento a nuestras redes.
       </p>
-      <div className="flex items-center gap-3 bg-zinc-900 border border-white/5 px-6 py-3 rounded-full opacity-60">
-        <Clock size={14} className="text-golden-main" />
-        <span className="text-[9px] font-black uppercase italic">{horario}</span>
-      </div>
+      {instagram && (
+        <a
+          href={`https://instagram.com/${instagram}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 bg-pink-500/10 border border-pink-500/20 px-6 py-3 rounded-full text-pink-400 hover:bg-pink-500 hover:text-white transition-all"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect width="20" height="20" x="2" y="2" rx="5" ry="5"/>
+            <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+            <line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/>
+          </svg>
+          <span className="text-[10px] font-black uppercase tracking-widest">Instagram</span>
+        </a>
+      )}
     </main>
   );
 
@@ -114,8 +129,8 @@ export default function CatalogoCliente() {
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 px-4 py-2 rounded-full text-green-400 hover:bg-green-500 hover:text-white transition-all"
               >
-                <span className="text-sm">💬</span>
-                <span className="text-xs font-black uppercase">WhatsApp</span>
+                <MessageCircle size={14} className="text-green-400" />
+                <span className="text-[10px] font-black uppercase tracking-widest">WhatsApp</span>
               </a>
             )}
             {instagram && (
@@ -125,8 +140,13 @@ export default function CatalogoCliente() {
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 bg-pink-500/10 border border-pink-500/20 px-4 py-2 rounded-full text-pink-400 hover:bg-pink-500 hover:text-white transition-all"
               >
-                <span className="text-sm">📷</span>
-                <span className="text-xs font-black uppercase">Instagram</span>
+                {/* Icono SVG de Instagram — lucide-react v1 no lo incluye */}
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect width="20" height="20" x="2" y="2" rx="5" ry="5"/>
+                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+                  <line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/>
+                </svg>
+                <span className="text-[10px] font-black uppercase tracking-widest">Instagram</span>
               </a>
             )}
           </div>
@@ -146,9 +166,21 @@ export default function CatalogoCliente() {
               )}
 
               <div className="mb-8 text-center md:text-left">
-                <div className="w-14 h-14 bg-black rounded-2xl border border-white/5 flex items-center justify-center mb-6 mx-auto md:mx-0 group-hover:scale-105 transition-transform duration-500">
-                   <ShoppingBag size={24} className="text-zinc-800 group-hover:text-golden-main/50" />
-                </div>
+                {prod.photo_url ? (
+                  <div className="w-full h-40 md:h-48 bg-black rounded-[2rem] border border-white/5 mb-6 overflow-hidden relative group-hover:scale-[1.02] transition-transform duration-500 shadow-xl shadow-black/50">
+                    <Image
+                      src={prod.photo_url}
+                      alt={prod.name}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                      className="object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-14 h-14 bg-black rounded-2xl border border-white/5 flex items-center justify-center mb-6 mx-auto md:mx-0 group-hover:scale-105 transition-transform duration-500">
+                     <ShoppingBag size={24} className="text-zinc-800 group-hover:text-golden-main/50" />
+                  </div>
+                )}
 
                 <h3 className="font-heading text-2xl md:text-4xl font-black uppercase italic tracking-tight mb-3 leading-none group-hover:text-golden-main transition-colors">
                   {prod.name}
@@ -163,12 +195,12 @@ export default function CatalogoCliente() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-baseline gap-1">
                     <span className="text-3xl font-black text-white italic tracking-tighter">
-                      ${(prod.variants as any)?.[0]?.price?.toLocaleString('es-CL')}
+                      ${((prod.variants as ProductVariant[])?.[0]?.price ?? 0).toLocaleString('es-CL')}
                     </span>
                     <span className="text-[8px] text-zinc-700 font-black uppercase tracking-widest">CLP</span>
                   </div>
                   <span className="text-[7px] font-black text-zinc-500 uppercase tracking-widest bg-white/5 px-2 py-1 rounded-md italic">
-                    {(prod.variants as any)?.[0]?.name}
+                    {(prod.variants as ProductVariant[])?.[0]?.name ?? 'Individual'}
                   </span>
                 </div>
 
@@ -185,18 +217,8 @@ export default function CatalogoCliente() {
         </div>
 
         {/* FOOTER INFO */}
-        <footer className="mt-20 grid grid-cols-1 md:grid-cols-2 gap-4 opacity-80">
-          <div className="bg-zinc-900/20 border border-white/5 p-6 rounded-[2rem] flex items-center gap-5">
-            <div className="w-10 h-10 rounded-full bg-golden-main/10 flex items-center justify-center text-golden-main shrink-0">
-              <Clock size={18} />
-            </div>
-            <div>
-              <p className="text-[8px] font-black uppercase tracking-widest text-white mb-1 italic">Horario de Atención</p>
-              <p className="text-[10px] font-bold text-zinc-500 italic uppercase">{horario}</p>
-            </div>
-          </div>
-
-          <div className="bg-zinc-900/20 border border-white/5 p-6 rounded-[2rem] flex items-center gap-5">
+        <footer className="mt-20 flex justify-center opacity-80">
+          <div className="bg-zinc-900/20 border border-white/5 p-6 rounded-[2rem] flex items-center gap-5 max-w-sm w-full">
             <div className="w-10 h-10 rounded-full bg-golden-main/10 flex items-center justify-center text-golden-main shrink-0">
               <Info size={18} />
             </div>

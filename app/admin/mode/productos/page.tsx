@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Package, Plus, Edit2, Trash2, X, Save, Image as ImageIcon, AlertCircle, CheckCircle2, Upload } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { GcProduct } from '@/lib/gc-data';
+import { GcProduct, ProductVariant } from '@/lib/gc-data';
 
 export default function ProductosPage() {
   const [productos, setProductos] = useState<GcProduct[]>([]);
@@ -14,6 +14,7 @@ export default function ProductosPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [showValidationError, setShowValidationError] = useState(false);
   
   const [editingProduct, setEditingProduct] = useState<Partial<GcProduct> | null>(null);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
@@ -32,13 +33,15 @@ export default function ProductosPage() {
 
   useEffect(() => { void loadProducts(); }, []);
 
-  const getPrice = (variants: any): number => {
-    if (Array.isArray(variants) && variants.length > 0) return variants[0].price ?? 0;
+  /** Extrae el precio del primer variant de un producto. */
+  const getPrice = (variants: ProductVariant[] | null | unknown): number => {
+    if (Array.isArray(variants) && variants.length > 0) return (variants[0] as ProductVariant).price ?? 0;
     return 0;
   };
 
-  const getFormat = (variants: any): string => {
-    if (Array.isArray(variants) && variants.length > 0) return variants[0].name ?? 'Individual';
+  /** Extrae el nombre/formato del primer variant de un producto. */
+  const getFormat = (variants: ProductVariant[] | null | unknown): string => {
+    if (Array.isArray(variants) && variants.length > 0) return (variants[0] as ProductVariant).name ?? 'Individual';
     return 'Individual';
   };
 
@@ -58,38 +61,67 @@ export default function ProductosPage() {
 
   const saveProduct = async () => {
     if (!editingProduct?.name || getPrice(editingProduct.variants) <= 0) {
-      alert("Por favor rellena el nombre y un precio válido");
+      setShowValidationError(true);
+      setTimeout(() => setShowValidationError(false), 3000);
       return;
     }
 
     setLoading(true);
+    setError('');
     const isNew = !editingProduct.id;
-    
-    const { error: saveError } = isNew 
-      ? await supabase.from('gc_products').insert([editingProduct])
-      : await supabase.from('gc_products').update(editingProduct).eq('id', editingProduct.id);
 
-    if (saveError) {
-      setError(saveError.message);
-    } else {
-      setSaveSuccess(true);
-      await loadProducts();
-      setTimeout(() => {
-        setIsModalOpen(false);
-        setSaveSuccess(false);
-        setEditingProduct(null);
-      }, 1500);
+    try {
+      const { error: saveError } = isNew
+        ? await supabase.from('gc_products').insert([editingProduct])
+        : await supabase.from('gc_products').update(editingProduct).eq('id', editingProduct.id);
+
+      if (saveError) {
+        setError(saveError.message);
+      } else {
+        setSaveSuccess(true);
+        await loadProducts();
+        setTimeout(() => {
+          setIsModalOpen(false);
+          setSaveSuccess(false);
+          setEditingProduct(null);
+        }, 1500);
+      }
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const deleteProduct = async () => {
     if (!productToDelete) return;
-    const { error: delError } = await supabase.from('gc_products').delete().eq('id', productToDelete);
-    if (!delError) {
-      setProductos(prev => prev.filter(p => p.id !== productToDelete));
-      setIsDeleteModalOpen(false);
-      setProductToDelete(null);
+    try {
+      const { error: delError } = await supabase.from('gc_products').delete().eq('id', productToDelete);
+      if (delError) {
+        setError(delError.message);
+      } else {
+        setProductos(prev => prev.filter(p => p.id !== productToDelete));
+        setIsDeleteModalOpen(false);
+        setProductToDelete(null);
+      }
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
+  const toggleStock = async (id: string, currentStatus: boolean) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('gc_products').update({ available: !currentStatus }).eq('id', id);
+      if (!error) {
+        setProductos(prev => prev.map(p => p.id === id ? { ...p, available: !currentStatus } : p));
+      } else {
+        setError(error.message);
+      }
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -98,20 +130,22 @@ export default function ProductosPage() {
     const fileName = `${Date.now()}.${fileExt}`;
     const filePath = `gc_img/${fileName}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from('gc_images')
-      .upload(filePath, file);
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from('gc_images')
+        .upload(filePath, file);
 
-    if (uploadError) {
-      console.error('Error uploading image:', uploadError);
+      if (uploadError) {
+        setError(`Error al subir imagen: ${uploadError.message}`);
+        return null;
+      }
+
+      const { data } = supabase.storage.from('gc_images').getPublicUrl(filePath);
+      return data.publicUrl;
+    } catch (err) {
+      setError(`Error inesperado al subir imagen: ${(err as Error).message}`);
       return null;
     }
-
-    const { data } = supabase.storage
-      .from('gc_images')
-      .getPublicUrl(filePath);
-
-    return data.publicUrl;
   };
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -167,7 +201,7 @@ export default function ProductosPage() {
 
               <div className="flex items-center gap-2 w-full md:w-auto justify-end pt-4 md:pt-0 border-t md:border-t-0 border-white/5">
                 <button 
-                  onClick={() => void toggleStock(prod.id, prod.available)}
+                  onClick={() => void toggleStock(prod.id, prod.available ?? false)}
                   className={`flex-1 md:flex-none px-5 py-2.5 rounded-xl font-black text-[8px] uppercase tracking-widest transition-all border ${prod.available ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}
                 >
                   {prod.available ? 'Disponible' : 'Agotado'}
@@ -208,7 +242,7 @@ export default function ProductosPage() {
                         <input 
                           type="number" placeholder="PRECIO"
                           value={getPrice(editingProduct?.variants) || ''}
-                          onChange={(e) => setEditingProduct({...editingProduct, variants: [{...editingProduct?.variants?.[0], price: Number(e.target.value), name: getFormat(editingProduct?.variants)}]})}
+                          onChange={(e) => setEditingProduct({...editingProduct, variants: [{...(Array.isArray(editingProduct?.variants) && editingProduct.variants.length > 0 ? (editingProduct.variants as ProductVariant[])[0] : {}), price: Number(e.target.value), name: getFormat(editingProduct?.variants)}]})}
                           className="w-full bg-black/50 border border-white/5 rounded-2xl py-4 text-center font-black text-white/50 focus:text-white focus:border-golden-main/40 outline-none transition-all text-xs"
                         />
                       </div>
@@ -216,7 +250,7 @@ export default function ProductosPage() {
                       {/* FORMATO - Estilo Sólido */}
                       <select 
                         value={getFormat(editingProduct?.variants)}
-                        onChange={(e) => setEditingProduct({...editingProduct, variants: [{...editingProduct?.variants?.[0], name: e.target.value, price: getPrice(editingProduct?.variants)}]})}
+                        onChange={(e) => setEditingProduct({...editingProduct, variants: [{...(Array.isArray(editingProduct?.variants) && editingProduct.variants.length > 0 ? (editingProduct.variants as ProductVariant[])[0] : {}), name: e.target.value, price: getPrice(editingProduct?.variants)}]})}
                         className="w-full bg-black border border-white/10 rounded-2xl py-4 text-center font-black text-golden-main focus:border-golden-main outline-none text-[10px] uppercase appearance-none cursor-pointer"
                         style={{ textAlignLast: 'center' }}
                       >
@@ -244,16 +278,28 @@ export default function ProductosPage() {
                       onChange={handleImageUpload}
                     />
                     {editingProduct?.photo_url && (
-                      <div className="w-full h-32 bg-black/50 border border-white/5 rounded-2xl overflow-hidden mb-4">
+                      <div className="w-full h-32 bg-black/50 border border-white/5 rounded-2xl overflow-hidden mb-4 relative group">
                         <img src={editingProduct.photo_url} alt="Preview" className="w-full h-full object-cover" />
+                        <button 
+                          onClick={() => setEditingProduct({ ...editingProduct, photo_url: null })}
+                          className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-xl opacity-0 group-hover:opacity-100 transition-all shadow-lg hover:bg-red-600"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     )}
                     <button 
                       onClick={() => fileInputRef.current?.click()}
-                      className="w-full bg-zinc-800/30 border border-dashed border-white/10 py-4 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase italic text-zinc-500 hover:text-white hover:border-white/20 transition-all"
+                      className="w-full mb-3 bg-zinc-800/30 border border-dashed border-white/10 py-4 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase italic text-zinc-500 hover:text-white hover:border-white/20 transition-all"
                     >
-                      <Upload size={16} /> {editingProduct?.photo_url ? 'Cambiar Imagen' : 'Subir desde Galería / PC'}
+                      <Upload size={16} /> {editingProduct?.photo_url ? 'Actualizar Imagen' : 'Subir desde Galería / PC'}
                     </button>
+                    {showValidationError && (
+                      <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex items-center justify-center gap-2 animate-bounce mb-3">
+                        <AlertCircle size={12} className="text-red-500" />
+                        <span className="text-[8px] font-black uppercase text-red-500">Datos incompletos o inválidos</span>
+                      </div>
+                    )}
 
                     <button 
                       onClick={saveProduct} disabled={loading}
